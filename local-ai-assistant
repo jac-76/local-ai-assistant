@@ -6,7 +6,8 @@ Commands:
   transcribe audio.wav        Whisper ASR on the NPU
   ask "question"              one-shot LLM reply on the NPU
   voice [SECONDS]             record → transcribe → LLM reply (→ speak with --speak)
-  chat [--voice]              interactive chat; --voice speaks each reply
+  chat [--voice]              interactive chat, history persists across runs
+                              (--reset to wipe, --no-history for ephemeral)
   speak "text"                piper TTS playback
   status                      is the NPU server up?
   stop                        stop the NPU server
@@ -17,7 +18,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-from assistant import server, asr, chat, tts, record
+from assistant import server, asr, chat, tts, record, history
 from assistant.config import LLM_MODEL
 
 
@@ -80,9 +81,17 @@ def cmd_stop(_args):
 def cmd_chat(args):
     server.ensure_flm()
     server.start_server(LLM_MODEL)
-    history = [{"role": "system",
-                "content": "You are a concise, helpful local assistant running on an AMD NPU."}]
-    print(f"[NPU LLM {LLM_MODEL} ready — type to chat, 'exit' to quit]")
+    if args.reset:
+        history.clear_history()
+    if args.no_history:
+        messages = [dict(history.SYSTEM_PROMPT)]
+    else:
+        messages = history.load_history()
+    prior = sum(1 for m in messages if m["role"] != "system")
+    banner = f"[NPU LLM {LLM_MODEL} ready — type to chat, 'exit' to quit"
+    if prior:
+        banner += f"; resumed {prior} earlier message(s)"
+    print(banner + "]")
     while True:
         try:
             line = input("you> ").strip()
@@ -93,9 +102,11 @@ def cmd_chat(args):
             break
         if not line:
             continue
-        history.append({"role": "user", "content": line})
-        reply = chat.chat(history)["choices"][0]["message"]["content"].strip()
-        history.append({"role": "assistant", "content": reply})
+        messages.append({"role": "user", "content": line})
+        reply = chat.chat(messages)["choices"][0]["message"]["content"].strip()
+        messages.append({"role": "assistant", "content": reply})
+        if not args.no_history:
+            history.save_history(messages)
         print(f"ai>   {reply}")
         if args.voice:
             tts.speak(reply)
@@ -128,8 +139,12 @@ def build_parser():
     s.add_argument("text")
     s.set_defaults(func=cmd_speak)
 
-    c = sub.add_parser("chat", help="interactive NPU chat")
+    c = sub.add_parser("chat", help="interactive NPU chat (history persists)")
     c.add_argument("--voice", action="store_true", help="speak replies via piper")
+    c.add_argument("--reset", action="store_true",
+                   help="wipe saved history before starting")
+    c.add_argument("--no-history", action="store_true",
+                   help="ephemeral session: don't load or save history")
     c.set_defaults(func=cmd_chat)
 
     sub.add_parser("status", help="server up?").set_defaults(func=cmd_status)

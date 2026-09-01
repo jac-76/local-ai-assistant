@@ -28,27 +28,33 @@ def ensure_voice() -> Path:
 
 def speak(text: str, voice_model: Path | None = None) -> None:
     """Synthesize `text` with piper and play it through the default sink."""
+    text = text.strip()
+    if not text:
+        return
     ensure_voice()
     model = voice_model or PIPER_VOICE
     if not shutil.which("pw-play"):
         raise SystemExit("pw-play (PipeWire) not found for playback")
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=True) as wav:
-        synth = subprocess.run(
-            [
-                "piper-tts",
-                "-m",
-                str(model),
-                "-f",
-                wav.name,
-                "--output-raw",
-            ],
-            input=text.encode(),
-            capture_output=True,
-            check=True,
-        )
+        # piper writes a WAV to -f; do NOT add --output-raw (it redirects the
+        # audio to stdout and leaves -f empty, so pw-play would get silence).
+        try:
+            subprocess.run(
+                ["piper-tts", "-m", str(model), "-f", wav.name],
+                input=text.encode(),
+                capture_output=True,
+                check=True,
+            )
+        except subprocess.CalledProcessError as e:
+            detail = e.stderr.decode(errors="replace").strip() if e.stderr else ""
+            raise RuntimeError(f"piper-tts failed: {detail}")
         play = subprocess.Popen(
             ["pw-play", wav.name],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
-        play.wait(timeout=120)
+        try:
+            play.wait(timeout=120)
+        except subprocess.TimeoutExpired:
+            play.kill()
+            raise RuntimeError("pw-play timed out")

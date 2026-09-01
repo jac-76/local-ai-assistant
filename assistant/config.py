@@ -9,6 +9,9 @@ STATE_DIR = Path.home() / ".local" / "state" / "flm"
 LOG_FILE = STATE_DIR / "flm-server.log"
 PID_FILE = STATE_DIR / "flm-server.pid"
 
+APP_STATE_DIR = Path.home() / ".local" / "state" / "local-ai-assistant"
+CHAT_HISTORY_FILE = APP_STATE_DIR / "chat-history.json"
+
 PIPER_VOICE = Path.home() / ".local" / "share" / "piper" / "voice.onnx"
 PIPER_VOICE_URL = (
     "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/"
