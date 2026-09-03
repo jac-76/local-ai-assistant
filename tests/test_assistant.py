@@ -41,8 +41,16 @@ class TestChatRequest(unittest.TestCase):
 class TestConfig(unittest.TestCase):
     def test_defaults(self):
         self.assertTrue(config.FLM_BASE.startswith("http://"))
-        self.assertEqual(config.LLM_MODEL, "gemma3:1b")
         self.assertEqual(config.ASR_MODEL, "whisper-v3")
+        # LLM_MODEL is an "name:tag" ref, overridable via LAA_LLM_MODEL
+        self.assertRegex(config.LLM_MODEL, r"^[\w.-]+:[\w.-]+$")
+
+    def test_llm_model_env_override(self):
+        import importlib
+        with patch.dict(os.environ, {"LAA_LLM_MODEL": "llama3.2:3b"}):
+            importlib.reload(config)
+            self.assertEqual(config.LLM_MODEL, "llama3.2:3b")
+        importlib.reload(config)  # restore
 
 
 class TestNoiseFilter(unittest.TestCase):
@@ -60,6 +68,14 @@ class TestNoiseFilter(unittest.TestCase):
                      "explain git rebase in one sentence"):
             self.assertFalse(asr.is_probably_noise(good),
                              f"should be speech: {good!r}")
+
+    def test_stop_phrases(self):
+        for stop in ("goodbye", "Goodbye.", "bye", "stop", "I'm done",
+                     "that's all", "never mind"):
+            self.assertTrue(asr.is_stop_phrase(stop), f"should stop: {stop!r}")
+        for keep in ("goodbye for now tell me a joke", "don't stop",
+                     "what does bye mean"):
+            self.assertFalse(asr.is_stop_phrase(keep), f"should not stop: {keep!r}")
 
 
 class TestHistory(unittest.TestCase):

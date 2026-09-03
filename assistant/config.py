@@ -1,9 +1,11 @@
+import os
 from pathlib import Path
 
 FLM_PORT = 52625
 FLM_BASE = f"http://127.0.0.1:{FLM_PORT}"
 ASR_MODEL = "whisper-v3"
-LLM_MODEL = "gemma3:1b"
+# Override with the LAA_LLM_MODEL env var; any model from `flm list` works.
+LLM_MODEL = os.environ.get("LAA_LLM_MODEL", "qwen3:4b")
 
 STATE_DIR = Path.home() / ".local" / "state" / "flm"
 LOG_FILE = STATE_DIR / "flm-server.log"

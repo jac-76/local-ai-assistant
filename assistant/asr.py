@@ -73,3 +73,17 @@ def is_probably_noise(text: str) -> bool:
     if len(words) >= 4 and len(set(words)) <= max(2, len(words) // 3):
         return True  # a short phrase repeated in a loop
     return False
+
+
+# Spoken phrases that end a `voice --loop` conversation.
+_STOP_PHRASES = {
+    "bye", "goodbye", "good bye", "exit", "quit", "stop",
+    "im done", "i am done", "that is all", "thats all",
+    "nevermind", "never mind", "end conversation", "shut down",
+}
+
+
+def is_stop_phrase(text: str) -> bool:
+    """True when the user's utterance is a request to end the conversation."""
+    core = re.sub(r"[^\w\s]", "", text, flags=re.UNICODE).strip().lower()
+    return core in _STOP_PHRASES
