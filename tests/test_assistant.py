@@ -45,6 +45,23 @@ class TestConfig(unittest.TestCase):
         self.assertEqual(config.ASR_MODEL, "whisper-v3")
 
 
+class TestNoiseFilter(unittest.TestCase):
+    def test_rejects_noise_transcripts(self):
+        for junk in ("", "   ", "...", "…", ". . .", "?!",
+                     "Thank you.", "you", "Bye bye",
+                     "E aí E aí E aí E aí E aí E aí",
+                     "you you you you", "the the the the the"):
+            self.assertTrue(asr.is_probably_noise(junk),
+                            f"should be noise: {junk!r}")
+
+    def test_keeps_real_speech(self):
+        for good in ("what time is it", "turn the music up",
+                     "hello", "add milk to the shopping list",
+                     "explain git rebase in one sentence"):
+            self.assertFalse(asr.is_probably_noise(good),
+                             f"should be speech: {good!r}")
+
+
 class TestHistory(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp()) / "chat-history.json"

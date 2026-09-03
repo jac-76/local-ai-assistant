@@ -20,8 +20,14 @@ def check_audio_stack() -> None:
         raise SystemExit("PipeWire daemon not running")
 
 
-def record(duration: float, out_path: Path, device: str = "default") -> Path:
-    """Record `duration` seconds of mic audio to `out_path` (WAV, 16k mono)."""
+def record(duration: float, out_path: Path, device: str = "default",
+           warmup: float = 0.5) -> Path:
+    """Record `duration` seconds of mic audio to `out_path` (WAV, 16k mono).
+
+    `pw-record` takes a moment to actually start capturing, so `warmup` extra
+    seconds are recorded up front; the caller's `duration` of speech all lands
+    after the device has spun up. Whisper ignores the leading silence.
+    """
     check_audio_stack()
     if device not in VALID_SINKS:
         device = "default"
@@ -40,7 +46,7 @@ def record(duration: float, out_path: Path, device: str = "default") -> Path:
     try:
         import time
 
-        time.sleep(duration)
+        time.sleep(warmup + duration)
     finally:
         proc.terminate()
         try:

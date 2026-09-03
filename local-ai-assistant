@@ -53,8 +53,11 @@ def cmd_voice(args):
     print("[transcribing on NPU ...]")
     query = asr.transcribe_text(tmp)
     tmp.unlink(missing_ok=True)
-    if not query:
-        print("(no speech detected)")
+    if asr.is_probably_noise(query):
+        if query:
+            print(f"(no speech detected — heard only: {query!r})")
+        else:
+            print("(no speech detected)")
         return
     print(f"you: {query}")
     print("[thinking on NPU ...]")
