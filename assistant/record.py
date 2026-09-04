@@ -3,6 +3,7 @@
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 VALID_SINKS = ["default"]
@@ -63,3 +64,29 @@ def record_temp(duration: float, device: str = "default") -> Path:
     tmp = Path(tempfile.mkstemp(suffix=".wav", prefix="npu-assistant-")[1])
     record(duration, tmp, device)
     return tmp
+
+
+def start(out_path: Path):
+    """Begin recording mic audio to `out_path`; return the pw-record process.
+
+    Pair with `stop()`. This is the push-to-talk primitive: the caller decides
+    when recording ends, so only the user's actual speech is captured — no fixed
+    window of dead air for Whisper to hallucinate on.
+    """
+    check_audio_stack()
+    proc = subprocess.Popen(
+        ["pw-record", "--rate", "16000", "--channels", "1", str(out_path)],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    time.sleep(0.3)  # let pw-record actually start capturing
+    return proc
+
+
+def stop(proc) -> None:
+    """Stop a recording started with `start()`."""
+    proc.terminate()
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        proc.kill()

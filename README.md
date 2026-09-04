@@ -24,7 +24,7 @@ box.
 - AMD NPU driver stack: `amdxdna` kernel module, `xrt`, `xrt-plugin-amdxdna`
 - [FastFlowLM](https://fastflowlm.com/) — `flm validate` passes (memlock unlimited)
 - `piper-tts` for spoken replies (a ~63 MB voice onnx auto-downloads on first
-  `speak` / `voice --speak`, then stays cached in `~/.local/share/piper/`)
+  `speak` / `voice`, then stays cached in `~/.local/share/piper/`)
 - System Python 3.10+; **no third-party pip deps** (stdlib only)
 
 ## Install
@@ -49,20 +49,20 @@ install -m755 local-ai-assistant ~/.local/bin/
 
 ```sh
 local-ai-assistant status                 # NPU server up?
-local-ai-assistant voice 5                # say something for 5s → get an answer
-local-ai-assistant voice 5 --speak        # ... and hear it through the speakers
+local-ai-assistant voice                  # push-to-talk conversation (spoken replies)
 local-ai-assistant ask "explain git rebase"   # plain text question on the NPU
 local-ai-assistant record 5 clip.wav      # just capture mic audio
 local-ai-assistant transcribe clip.wav    # ASR an existing file
-local-ai-assistant chat                   # interactive session
+local-ai-assistant chat                   # interactive text chat
 local-ai-assistant chat --voice           # ... and speak every reply
 local-ai-assistant stop                   # unload models, free the NPU
 ```
 
-`chat` keeps its conversation in `~/.local/state/local-ai-assistant/chat-history.json`
-and reloads it on the next run, so context carries across sessions. Use
-`chat --reset` to start clean or `chat --no-history` for a one-off session that
-writes nothing.
+`voice` is a push-to-talk loop: press Enter to start talking, Enter again to
+stop (only your speech is recorded — no fixed listen window), and the reply is
+spoken back. `chat` and `voice` share one conversation, kept in
+`~/.local/state/local-ai-assistant/chat-history.json` and reloaded next run;
+`--reset` starts clean, `--no-history` writes nothing.
 
 First invocation starts the FastFlowLM server (~10–15 s to load models) and leaves
 it warm. The server exposes both `/v1/audio/transcriptions` and

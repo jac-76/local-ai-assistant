@@ -5,7 +5,8 @@ Commands:
   record SECONDS [out.wav]    capture mic audio (default 5s -> temp wav)
   transcribe audio.wav        Whisper ASR on the NPU
   ask "question"              one-shot LLM reply on the NPU
-  voice [SECONDS]             record → transcribe → LLM reply (→ speak with --speak)
+  voice                      push-to-talk conversation on the NPU: Enter to
+                             start/stop each turn, reply spoken, history persists
   chat [--voice]              interactive chat, history persists across runs
                               (--reset to wipe, --no-history for ephemeral)
   speak "text"                piper TTS playback
@@ -44,27 +45,60 @@ def cmd_ask(args):
 
 
 def cmd_voice(args):
+    """Push-to-talk conversation on the NPU. Each turn: Enter to start talking,
+    Enter again to stop — only what you say is recorded, no fixed listen window.
+    The reply is spoken and history carries across turns. 'q' or Ctrl+C quits."""
     server.ensure_flm()
     server.start_server(LLM_MODEL)
     record.check_audio_stack()
-    tmp = Path(tempfile.mkstemp(suffix=".wav", prefix="npu-voice-")[1])
-    print(f"[listening {args.seconds}s ...]")
-    record.record(args.seconds, tmp)
-    print("[transcribing on NPU ...]")
-    query = asr.transcribe_text(tmp)
-    tmp.unlink(missing_ok=True)
-    if asr.is_probably_noise(query):
-        if query:
-            print(f"(no speech detected — heard only: {query!r})")
-        else:
-            print("(no speech detected)")
-        return
-    print(f"you: {query}")
-    print("[thinking on NPU ...]")
-    reply = chat.chat_reply(query)
-    print(f"ai:  {reply}")
-    if args.speak:
+
+    if args.reset:
+        history.clear_history()
+    messages = ([dict(history.SYSTEM_PROMPT)] if args.no_history
+                else history.load_history())
+    print(f"[voice chat — {LLM_MODEL} on the NPU]")
+    print("[Enter = start talking, Enter again = stop  ·  'q' or Ctrl+C = quit]")
+
+    while True:
+        try:
+            if input("> ").strip().lower() in ("q", "quit", "exit"):
+                break
+        except (EOFError, KeyboardInterrupt):
+            print()
+            break
+
+        tmp = Path(tempfile.mkstemp(suffix=".wav", prefix="npu-voice-")[1])
+        proc = record.start(tmp)
+        try:
+            input("  ● recording — Enter to stop ")
+        except (EOFError, KeyboardInterrupt):
+            print()
+        record.stop(proc)
+
+        if not tmp.exists() or tmp.stat().st_size < 1024:
+            tmp.unlink(missing_ok=True)
+            print("(nothing recorded)")
+            continue
+        print("[transcribing on NPU ...]")
+        query = asr.transcribe_text(tmp)
+        tmp.unlink(missing_ok=True)
+        if asr.is_probably_noise(query):
+            print(f"(no speech detected — heard only: {query!r})" if query
+                  else "(no speech detected)")
+            continue
+
+        print(f"you: {query}")
+        messages.append({"role": "user", "content": query})
+        print("[thinking on NPU ...]")
+        reply = chat.chat(messages)["choices"][0]["message"]["content"].strip()
+        messages.append({"role": "assistant", "content": reply})
+        if not args.no_history:
+            history.save_history(messages)
+        print(f"ai:  {reply}")
         tts.speak(reply)
+
+    if not args.no_history:
+        history.save_history(messages)
 
 
 def cmd_speak(args):
@@ -133,9 +167,11 @@ def build_parser():
     a.add_argument("question")
     a.set_defaults(func=cmd_ask)
 
-    v = sub.add_parser("voice", help="record → transcribe → LLM reply")
-    v.add_argument("seconds", type=float, default=5.0, nargs="?")
-    v.add_argument("--speak", action="store_true", help="speak the reply via piper")
+    v = sub.add_parser("voice", help="push-to-talk conversation on the NPU")
+    v.add_argument("--reset", action="store_true",
+                   help="wipe saved conversation history before starting")
+    v.add_argument("--no-history", action="store_true",
+                   help="ephemeral session: don't load or save history")
     v.set_defaults(func=cmd_voice)
 
     s = sub.add_parser("speak", help="piper TTS out loud")
