@@ -16,7 +16,7 @@ CHAT_HISTORY_FILE = APP_STATE_DIR / "chat-history.json"
 
 # piper TTS voice. Override with LAA_PIPER_VOICE (any id from
 # https://huggingface.co/rhasspy/piper-voices, e.g. en_US-libritts_r-medium).
-PIPER_VOICE_ID = os.environ.get("LAA_PIPER_VOICE", "en_US-ryan-high")
+PIPER_VOICE_ID = os.environ.get("LAA_PIPER_VOICE", "en_US-lessac-high")
 
 
 def _piper_url(voice_id: str, suffix: str = "") -> str:

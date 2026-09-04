@@ -23,7 +23,7 @@ box.
 - PipeWire for audio capture/playback (`pw-record`, `pw-play`)
 - AMD NPU driver stack: `amdxdna` kernel module, `xrt`, `xrt-plugin-amdxdna`
 - [FastFlowLM](https://fastflowlm.com/) — `flm validate` passes (memlock unlimited)
-- `piper-tts` for spoken replies. The voice model (`en_US-ryan-high`, ~120 MB)
+- `piper-tts` for spoken replies. The voice model (`en_US-lessac-high`, ~115 MB)
   auto-downloads on first `speak` / `voice` and caches in `~/.local/share/piper/`.
   Pick another with `LAA_PIPER_VOICE=<id>` (ids at
   <https://huggingface.co/rhasspy/piper-voices>).
