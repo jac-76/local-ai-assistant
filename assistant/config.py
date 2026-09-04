@@ -14,12 +14,18 @@ PID_FILE = STATE_DIR / "flm-server.pid"
 APP_STATE_DIR = Path.home() / ".local" / "state" / "local-ai-assistant"
 CHAT_HISTORY_FILE = APP_STATE_DIR / "chat-history.json"
 
-PIPER_VOICE = Path.home() / ".local" / "share" / "piper" / "voice.onnx"
-PIPER_VOICE_URL = (
-    "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/"
-    "en/en_US/lessac/medium/en_US-lessac-medium.onnx"
-)
-PIPER_VOICE_CFG_URL = (
-    "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/"
-    "en/en_US/lessac/medium/en_US-lessac-medium.onnx.json"
-)
+# piper TTS voice. Override with LAA_PIPER_VOICE (any id from
+# https://huggingface.co/rhasspy/piper-voices, e.g. en_US-libritts_r-medium).
+PIPER_VOICE_ID = os.environ.get("LAA_PIPER_VOICE", "en_US-ryan-high")
+
+
+def _piper_url(voice_id: str, suffix: str = "") -> str:
+    locale, name, quality = voice_id.split("-", 2)
+    lang = locale.split("_")[0]
+    return ("https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/"
+            f"{lang}/{locale}/{name}/{quality}/{voice_id}.onnx{suffix}")
+
+
+PIPER_VOICE = Path.home() / ".local" / "share" / "piper" / f"{PIPER_VOICE_ID}.onnx"
+PIPER_VOICE_URL = _piper_url(PIPER_VOICE_ID)
+PIPER_VOICE_CFG_URL = _piper_url(PIPER_VOICE_ID, ".json")

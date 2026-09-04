@@ -23,8 +23,10 @@ box.
 - PipeWire for audio capture/playback (`pw-record`, `pw-play`)
 - AMD NPU driver stack: `amdxdna` kernel module, `xrt`, `xrt-plugin-amdxdna`
 - [FastFlowLM](https://fastflowlm.com/) — `flm validate` passes (memlock unlimited)
-- `piper-tts` for spoken replies (a ~63 MB voice onnx auto-downloads on first
-  `speak` / `voice`, then stays cached in `~/.local/share/piper/`)
+- `piper-tts` for spoken replies. The voice model (`en_US-ryan-high`, ~120 MB)
+  auto-downloads on first `speak` / `voice` and caches in `~/.local/share/piper/`.
+  Pick another with `LAA_PIPER_VOICE=<id>` (ids at
+  <https://huggingface.co/rhasspy/piper-voices>).
 - System Python 3.10+; **no third-party pip deps** (stdlib only)
 
 ## Install
