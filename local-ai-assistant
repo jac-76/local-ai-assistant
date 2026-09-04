@@ -5,8 +5,7 @@ Commands:
   record SECONDS [out.wav]    capture mic audio (default 5s -> temp wav)
   transcribe audio.wav        Whisper ASR on the NPU
   ask "question"              one-shot LLM reply on the NPU
-  voice [SECONDS]             record → transcribe → LLM reply (→ speak with --speak);
-                              --loop for a hands-free back-and-forth conversation
+  voice [SECONDS]             record → transcribe → LLM reply (→ speak with --speak)
   chat [--voice]              interactive chat, history persists across runs
                               (--reset to wipe, --no-history for ephemeral)
   speak "text"                piper TTS playback
@@ -44,71 +43,28 @@ def cmd_ask(args):
     print(chat.chat_reply(args.question))
 
 
-def _listen(seconds):
-    """Record `seconds` of mic audio and return the transcript, or None if it
-    was silence / noise rather than speech."""
-    tmp = Path(tempfile.mkstemp(suffix=".wav", prefix="npu-voice-")[1])
-    print(f"[listening {seconds}s ...]")
-    record.record(seconds, tmp)
-    print("[transcribing on NPU ...]")
-    text = asr.transcribe_text(tmp)
-    tmp.unlink(missing_ok=True)
-    if asr.is_probably_noise(text):
-        print(f"(no speech detected — heard only: {text!r})" if text
-              else "(no speech detected)")
-        return None
-    return text
-
-
 def cmd_voice(args):
     server.ensure_flm()
     server.start_server(LLM_MODEL)
     record.check_audio_stack()
-
-    if not args.loop:
-        query = _listen(args.seconds)
-        if query is None:
-            return
-        print(f"you: {query}")
-        print("[thinking on NPU ...]")
-        reply = chat.chat_reply(query)
-        print(f"ai:  {reply}")
-        if args.speak:
-            tts.speak(reply)
+    tmp = Path(tempfile.mkstemp(suffix=".wav", prefix="npu-voice-")[1])
+    print(f"[listening {args.seconds}s ...]")
+    record.record(args.seconds, tmp)
+    print("[transcribing on NPU ...]")
+    query = asr.transcribe_text(tmp)
+    tmp.unlink(missing_ok=True)
+    if asr.is_probably_noise(query):
+        if query:
+            print(f"(no speech detected — heard only: {query!r})")
+        else:
+            print("(no speech detected)")
         return
-
-    # --loop: hands-free back-and-forth, replies always spoken.
-    messages = ([dict(history.SYSTEM_PROMPT)] if args.no_history
-                else history.load_history())
-    print(f"[voice loop — {LLM_MODEL} on the NPU. "
-          f"Say \"goodbye\" or press Ctrl+C to stop.]")
-    misses = 0
-    try:
-        while True:
-            query = _listen(args.seconds)
-            if query is None:
-                misses += 1
-                if misses >= 3:
-                    print("[no input three times — stopping]")
-                    break
-                continue
-            misses = 0
-            print(f"you: {query}")
-            if asr.is_stop_phrase(query):
-                tts.speak("Goodbye.")
-                break
-            messages.append({"role": "user", "content": query})
-            print("[thinking on NPU ...]")
-            reply = chat.chat(messages)["choices"][0]["message"]["content"].strip()
-            messages.append({"role": "assistant", "content": reply})
-            if not args.no_history:
-                history.save_history(messages)
-            print(f"ai:  {reply}")
-            tts.speak(reply)
-    except KeyboardInterrupt:
-        print()
-    if not args.no_history:
-        history.save_history(messages)
+    print(f"you: {query}")
+    print("[thinking on NPU ...]")
+    reply = chat.chat_reply(query)
+    print(f"ai:  {reply}")
+    if args.speak:
+        tts.speak(reply)
 
 
 def cmd_speak(args):
@@ -180,10 +136,6 @@ def build_parser():
     v = sub.add_parser("voice", help="record → transcribe → LLM reply")
     v.add_argument("seconds", type=float, default=5.0, nargs="?")
     v.add_argument("--speak", action="store_true", help="speak the reply via piper")
-    v.add_argument("--loop", action="store_true",
-                   help="hands-free back-and-forth conversation (replies always spoken)")
-    v.add_argument("--no-history", action="store_true",
-                   help="with --loop: don't load or save conversation history")
     v.set_defaults(func=cmd_voice)
 
     s = sub.add_parser("speak", help="piper TTS out loud")

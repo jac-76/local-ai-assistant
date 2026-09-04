@@ -69,14 +69,6 @@ class TestNoiseFilter(unittest.TestCase):
             self.assertFalse(asr.is_probably_noise(good),
                              f"should be speech: {good!r}")
 
-    def test_stop_phrases(self):
-        for stop in ("goodbye", "Goodbye.", "bye", "stop", "I'm done",
-                     "that's all", "never mind"):
-            self.assertTrue(asr.is_stop_phrase(stop), f"should stop: {stop!r}")
-        for keep in ("goodbye for now tell me a joke", "don't stop",
-                     "what does bye mean"):
-            self.assertFalse(asr.is_stop_phrase(keep), f"should not stop: {keep!r}")
-
 
 class TestHistory(unittest.TestCase):
     def setUp(self):
